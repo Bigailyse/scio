@@ -1006,7 +1006,7 @@ lazy val `scio-parquet`: Project = project
   .in(file("scio-parquet"))
   .dependsOn(
     `scio-core`,
-    `scio-avro`,
+    `scio-avro` % Test,
     `scio-test` % "test->test"
   )
   .settings(commonSettings)
@@ -1062,7 +1062,6 @@ lazy val `scio-parquet`: Project = project
 lazy val `scio-tensorflow`: Project = project
   .in(file("scio-tensorflow"))
   .dependsOn(
-    `scio-avro`,
     `scio-core`,
     `scio-test` % "test->test"
   )
@@ -1316,8 +1315,11 @@ lazy val `scio-smb`: Project = project
   .in(file("scio-smb"))
   .dependsOn(
     `scio-core`,
-    `scio-test` % "test;it",
-    `scio-avro` % IntegrationTest
+    `scio-avro` % Provided,
+    `scio-google-cloud-platform` % Provided,
+    `scio-parquet` % Provided,
+    `scio-tensorflow` % Provided,
+    `scio-test` % "test;it"
   )
   .configs(IntegrationTest)
   .settings(commonSettings)
@@ -1331,7 +1333,6 @@ lazy val `scio-smb`: Project = project
       "com.fasterxml.jackson.core" % "jackson-annotations" % jacksonVersion,
       "com.fasterxml.jackson.core" % "jackson-core" % jacksonVersion,
       "com.fasterxml.jackson.core" % "jackson-databind" % jacksonVersion,
-      "com.google.apis" % "google-api-services-bigquery" % googleApiServicesBigQueryVersion,
       "com.google.auto.service" % "auto-service-annotations" % autoServiceVersion,
       "com.google.auto.value" % "auto-value-annotations" % autoValueVersion,
       "com.google.code.findbugs" % "jsr305" % jsr305Version,
@@ -1340,29 +1341,27 @@ lazy val `scio-smb`: Project = project
       "com.spotify" %% "magnolify-parquet" % magnolifyVersion,
       "joda-time" % "joda-time" % jodaTimeVersion,
       "org.apache.beam" % "beam-sdks-java-core" % beamVersion,
-      "org.apache.beam" % "beam-sdks-java-extensions-avro" % beamVersion,
-      "org.apache.beam" % "beam-sdks-java-extensions-protobuf" % beamVersion,
       // #3260 work around for sorter memory limit until we patch upstream
       // "org.apache.beam" % "beam-sdks-java-extensions-sorter" % beamVersion,
-      "org.apache.beam" % "beam-sdks-java-io-google-cloud-platform" % beamVersion,
-      "org.apache.beam" % "beam-sdks-java-io-hadoop-common" % beamVersion,
       "org.apache.beam" % "beam-vendor-guava-26_0-jre" % beamVendorVersion,
       "org.apache.commons" % "commons-lang3" % commonsLang3Version,
       "org.checkerframework" % "checker-qual" % checkerFrameworkVersion,
       "org.scala-lang.modules" %% "scala-collection-compat" % scalaCollectionCompatVersion,
       "org.slf4j" % "slf4j-api" % slf4jVersion,
       // provided
+      "com.google.apis" % "google-api-services-bigquery" % googleApiServicesBigQueryVersion % Provided, // scio-gcp
       "com.github.ben-manes.caffeine" % "caffeine" % caffeineVersion % Provided,
-      "org.apache.avro" % "avro" % avroVersion % Provided,
-      "org.apache.hadoop" % "hadoop-common" % hadoopVersion % Provided,
-      "org.apache.parquet" % "parquet-avro" % parquetVersion % Provided excludeAll ("org.apache.avro" % "avro"),
-      "org.apache.parquet" % "parquet-column" % parquetVersion % Provided,
-      "org.apache.parquet" % "parquet-common" % parquetVersion % Provided,
-      "org.apache.parquet" % "parquet-hadoop" % parquetVersion % Provided,
-      "org.tensorflow" % "tensorflow-core-api" % tensorFlowVersion % Provided,
-      // runtime
-      "org.apache.beam" % "beam-sdks-java-io-hadoop-format" % beamVersion % Runtime,
-      "org.apache.hadoop" % "hadoop-client" % hadoopVersion % Runtime,
+      "org.apache.avro" % "avro" % avroVersion % Provided, // scio-avro
+      "org.apache.beam" % "beam-sdks-java-extensions-avro" % beamVersion % Provided, // scio-avro
+      "org.apache.beam" % "beam-sdks-java-extensions-protobuf" % beamVersion % Provided, // scio-tensorflow
+      "org.apache.beam" % "beam-sdks-java-io-google-cloud-platform" % beamVersion % Provided, // scio-gcp
+      "org.apache.beam" % "beam-sdks-java-io-hadoop-common" % beamVersion % Provided, // scio-parquet
+      "org.apache.hadoop" % "hadoop-common" % hadoopVersion % Provided, // scio-parquet
+      "org.apache.parquet" % "parquet-avro" % parquetVersion % Provided excludeAll ("org.apache.avro" % "avro"), // scio-parquet
+      "org.apache.parquet" % "parquet-column" % parquetVersion % Provided, // scio-parquet
+      "org.apache.parquet" % "parquet-common" % parquetVersion % Provided, // scio-parquet
+      "org.apache.parquet" % "parquet-hadoop" % parquetVersion % Provided, // scio-parquet
+      "org.tensorflow" % "tensorflow-core-api" % tensorFlowVersion % Provided, // scio-tensorflow
       // test
       "org.apache.beam" % "beam-sdks-java-core" % beamVersion % "it,test" classifier "tests",
       "org.hamcrest" % "hamcrest" % hamcrestVersion % "it,test",
