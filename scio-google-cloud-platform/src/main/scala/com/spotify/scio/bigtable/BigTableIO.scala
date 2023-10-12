@@ -26,12 +26,14 @@ import com.spotify.scio.io.{EmptyTap, EmptyTapOf, ScioIO, Tap, TestIO}
 import com.spotify.scio.values.SCollection
 import org.apache.beam.sdk.io.gcp.{bigtable => beam}
 import org.apache.beam.sdk.io.range.ByteKeyRange
-import org.apache.beam.sdk.transforms.SerializableFunction
 import org.apache.beam.sdk.values.KV
 import org.joda.time.Duration
 
 import scala.jdk.CollectionConverters._
 import com.spotify.scio.io.TapT
+import com.spotify.scio.util.Functions
+
+import scala.util.chaining._
 
 sealed trait BigtableIO[T] extends ScioIO[T] {
   final override val tapT: TapT.Aux[T, Nothing] = EmptyTapOf[T]
@@ -56,23 +58,16 @@ final case class BigtableRead(bigtableOptions: BigtableOptions, tableId: String)
   override protected def read(sc: ScioContext, params: ReadP): SCollection[Row] = {
     val coder = CoderMaterializer.beam(sc, Coder.protoMessageCoder[Row])
     val opts = bigtableOptions // defeat closure
-    var read = beam.BigtableIO
+    val read = beam.BigtableIO
       .read()
       .withProjectId(bigtableOptions.getProjectId)
       .withInstanceId(bigtableOptions.getInstanceId)
       .withTableId(tableId)
-      .withBigtableOptionsConfigurator(
-        new SerializableFunction[BigtableOptions.Builder, BigtableOptions.Builder] {
-          override def apply(input: BigtableOptions.Builder): BigtableOptions.Builder =
-            opts.toBuilder
-        }
-      )
-    if (!params.keyRanges.isEmpty) {
-      read = read.withKeyRanges(params.keyRanges.asJava)
-    }
-    if (params.rowFilter != null) {
-      read = read.withRowFilter(params.rowFilter)
-    }
+      .withBigtableOptionsConfigurator(Functions.serializableFn(_ => opts.toBuilder))
+      .withMaxBufferElementCount(params.maxBufferElementCount.map(Int.box).orNull)
+      .pipe(r => if (params.keyRanges.isEmpty) r else r.withKeyRanges(params.keyRanges.asJava))
+      .pipe(r => Option(params.rowFilter).fold(r)(r.withRowFilter))
+
     sc.applyTransform(read).setCoder(coder)
   }
 
@@ -89,6 +84,7 @@ object BigtableRead {
   object ReadParam {
     val DefaultKeyRanges: Seq[ByteKeyRange] = Seq.empty[ByteKeyRange]
     val DefaultRowFilter: RowFilter = null
+    val DefaultMaxBufferElementCount: Option[Int] = None
 
     def apply(keyRange: ByteKeyRange) = new ReadParam(Seq(keyRange))
 
@@ -98,7 +94,8 @@ object BigtableRead {
 
   final case class ReadParam private (
     keyRanges: Seq[ByteKeyRange] = ReadParam.DefaultKeyRanges,
-    rowFilter: RowFilter = ReadParam.DefaultRowFilter
+    rowFilter: RowFilter = ReadParam.DefaultRowFilter,
+    maxBufferElementCount: Option[Int] = ReadParam.DefaultMaxBufferElementCount
   )
 
   final def apply(projectId: String, instanceId: String, tableId: String): BigtableRead = {
@@ -140,12 +137,7 @@ final case class BigtableWrite[T <: Mutation](bigtableOptions: BigtableOptions, 
             .withProjectId(bigtableOptions.getProjectId)
             .withInstanceId(bigtableOptions.getInstanceId)
             .withTableId(tableId)
-            .withBigtableOptionsConfigurator(
-              new SerializableFunction[BigtableOptions.Builder, BigtableOptions.Builder] {
-                override def apply(input: BigtableOptions.Builder): BigtableOptions.Builder =
-                  opts.toBuilder
-              }
-            )
+            .withBigtableOptionsConfigurator(Functions.serializableFn(_ => opts.toBuilder))
         case BigtableWrite.Bulk(numOfShards, flushInterval) =>
           new BigtableBulkWriter(tableId, bigtableOptions, numOfShards, flushInterval)
       }
