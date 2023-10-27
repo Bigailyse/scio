@@ -84,28 +84,19 @@ private[scio] object VersionUtil {
   private[scio] def ignoreVersionCheck: Boolean =
     sys.props.get("scio.ignoreVersionWarning").exists(_.trim == "true")
 
-  private def messages(current: SemVer, latest: SemVer): Option[String] = (current, latest) match {
-    case (SemVer(0, minor, _, _), SemVer(0, 7, _, _)) if minor < 7 =>
-      Some(
-        MessagePattern("0.7", "https://spotify.github.io/scio/migrations/v0.7.0-Migration-Guide")
-      )
-    case (SemVer(0, minor, _, _), SemVer(0, 8, _, _)) if minor < 8 =>
-      Some(
-        MessagePattern("0.8", "https://spotify.github.io/scio/migrations/v0.8.0-Migration-Guide")
-      )
-    case (SemVer(0, minor, _, _), SemVer(0, 9, _, _)) if minor < 9 =>
-      Some(
-        MessagePattern("0.9", "https://spotify.github.io/scio/migrations/v0.9.0-Migration-Guide")
-      )
-    case (SemVer(0, minor, _, _), SemVer(0, 10, _, _)) if minor < 10 =>
-      Some(
-        MessagePattern("0.10", "https://spotify.github.io/scio/migrations/v0.10.0-Migration-Guide")
-      )
-    case (SemVer(0, minor, _, _), SemVer(0, 12, _, _)) if minor < 12 =>
-      Some(
-        MessagePattern("0.12", "https://spotify.github.io/scio/migrations/v0.12.0-Migration-Guide")
-      )
-    case _ => None
+  private val migrationPages = Set(7, 8, 9, 10, 12, 13)
+  private def messages(current: SemVer, latest: SemVer): Option[String] = {
+    Some(latest.minor)
+      .filter(migrationPages.contains)
+      .filter(_ > current.minor)
+      .map { minor =>
+        val minorVersion = s"0.$minor"
+        val fullVersion = s"v.0.$minor.0"
+        MessagePattern(
+          minorVersion,
+          s"https://spotify.github.io/scio/releases/migrations/v$fullVersion-Migration-Guide"
+        )
+      }
   }
 
   def checkVersion(
